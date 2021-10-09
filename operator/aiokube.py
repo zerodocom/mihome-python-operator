@@ -3,9 +3,14 @@ import asyncio
 import aiohttp
 
 class Kube:
-    def __init__(self, kubeconfig):
+    def __init__(self, kubeconfig, settings={}):
         """
         init kube instance by kubeconfig
+        
+        default
+        settings:
+           request_timeout: 3
+
         """
         kube_info = yaml.safe_load(kubeconfig)
         
@@ -21,6 +26,10 @@ class Kube:
         self.ssl = None
         self.session = None
         self.connector = None
+        self.settings = {
+           "request_timeout": 3,        
+        }
+        self.settings.update(settings)
 
         if user.get("token"):
             self.headers["Authorization"] = f"Bearer {user['token']}"
@@ -73,9 +82,25 @@ class Kube:
         return sslcontext
 
 
-    async def get_session(self):
+    def get_session(self):
         if self.session is None:
             self.connector = TCPConnector(loop=asyncio.get_event_loop(), limit=1000)
             self.session = aiohttp.ClientSession(connector=self.connector)
         return self.session
+
+    def get_settings(key, overwrite_value=None):
+        if default_value is None:
+            return self.settings.get(key)
+        else:
+            return overwrite_value
+
+    async def get(self, uri, params=None, timeout=None):
+        async with self.get_session().get(
+            url=self.generate_url(uri), 
+            params=params, 
+            headers=self.headers, 
+            ssl=self.ssl, 
+            timeout=self.get_setting("request_timeout", timeout)
+        ) as resp:
+            return await resp.json()
 
