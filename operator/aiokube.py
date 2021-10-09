@@ -1,24 +1,26 @@
 
+import asyncio
+import aiohttp
 
 class Kube:
-    apiserver = None
-    headers = {}
-    ssl = None
-
     def __init__(self, kubeconfig):
         """
         init kube instance by kubeconfig
         """
- 
-
-        kubeInfo = yaml.safe_load(kubeconfig)
+        kube_info = yaml.safe_load(kubeconfig)
         
-        clusters = kubeInfo.get('clusters')
-        users = kubeInfo.get('users')
+        clusters = kube_info.get('clusters')
+        users = kube_info.get('users')
         if clusters is None or users is None:
             raise ValueError("clusters or users not found in kubeconfig")
         cluster = clusters[0]['cluster']
         user = users[0]['user']
+
+        self.apiserver = cluster['server']
+        self.headers = {}
+        self.ssl = None
+        self.session = None
+        self.connector = None
 
         if user.get("token"):
             self.headers["Authorization"] = f"Bearer {user['token']}"
@@ -28,7 +30,6 @@ class Kube:
                 client_key_data=user.get('client-key-data'),
                 certificate_authority_data=cluster.get('certificate-authority-data')
             )
-        self.apiserver = cluster['server'] 
 
 
     @staticmethod
@@ -70,4 +71,11 @@ class Kube:
         os.remove(client_key.name)
 
         return sslcontext
+
+
+    async def get_session(self):
+        if self.session is None:
+            self.connector = TCPConnector(loop=asyncio.get_event_loop(), limit=1000)
+            self.session = aiohttp.ClientSession(connector=self.connector)
+        return self.session
 
