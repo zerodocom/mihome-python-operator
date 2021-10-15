@@ -101,7 +101,7 @@ class Kube:
             self.session = aiohttp.ClientSession(connector=self.connector)
         return self.session
 
-    def get_settings(key, overwrite_value=None):
+    def get_setting(key, overwrite_value=None):
         if default_value is None:
             return self.settings.get(key)
         else:
