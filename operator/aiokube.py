@@ -107,6 +107,9 @@ class Kube:
         else:
             return overwrite_value
 
+    def get_url(self, uri):
+        return f"{self.apiserver}{uri}"
+
     @staticmethod
     def generate_temp_file(raw):
         temp_file = tempfile.NamedTemporaryFile(delete=False)
@@ -116,7 +119,7 @@ class Kube:
 
     async def get(self, uri, params=None, timeout=None):
         async with self.get_session().get(
-            url=self.generate_url(uri), 
+            url=self.get_url(uri), 
             params=params, 
             headers=self.headers, 
             ssl=self.ssl, 
