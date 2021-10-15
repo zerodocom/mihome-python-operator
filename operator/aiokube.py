@@ -97,7 +97,7 @@ class Kube:
 
     def get_session(self):
         if self.session is None:
-            self.connector = TCPConnector(loop=asyncio.get_event_loop(), limit=1000)
+            self.connector = aiohttp.TCPConnector(loop=asyncio.get_event_loop(), limit=1000)
             self.session = aiohttp.ClientSession(connector=self.connector)
         return self.session
 
