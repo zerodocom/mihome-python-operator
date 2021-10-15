@@ -2,6 +2,7 @@
 import asyncio
 import aiohttp
 import yaml
+import ssl
 
 class Kube:
     def __init__(self, kubeconfig, settings={}):
