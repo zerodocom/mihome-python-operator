@@ -102,7 +102,7 @@ class Kube:
         return self.session
 
     def get_setting(self, key, overwrite_value=None):
-        if default_value is None:
+        if overwrite_value is None:
             return self.settings.get(key)
         else:
             return overwrite_value
