@@ -1,9 +1,11 @@
 
+import os
 import asyncio
 import aiohttp
 import yaml
 import ssl
 import base64
+import tempfile
 
 class Kube:
     def __init__(self, kubeconfig, settings={}):
