@@ -38,7 +38,7 @@ class Kube:
         else:
             
             if user.get('client-certificate-data') is not None:
-                client_certificate_file = generate_temp_file(
+                client_certificate_file = self.generate_temp_file(
                     base64.b64decode(user["client-certificate-data"]).decode('utf-8')
                 ).name
             elif user.get('client-certificate') is not None:
@@ -47,7 +47,7 @@ class Kube:
                 raise ValueError("client-certificate-data or client-certificate is required")
 
             if user.get('client-key-data') is not None:
-                client_key_file = generate_temp_file(
+                client_key_file = self.generate_temp_file(
                     base64.b64decode(user["client-key-data"]).decode('utf-8')
                 ).name
             elif user.get('client-key') is not None:
@@ -57,7 +57,7 @@ class Kube:
 
            
             if user.get('certificate-authority-data') is not None:
-                certificate_authority_file = generate_temp_file(
+                certificate_authority_file = self.generate_temp_file(
                     base64.b64decode(user["certificate-authority-data"]).decode('utf-8')
                 ).name
             elif user.get('certificate-authority') is not None:
