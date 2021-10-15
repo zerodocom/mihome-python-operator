@@ -1,6 +1,7 @@
 
 import asyncio
 import aiohttp
+import yaml
 
 class Kube:
     def __init__(self, kubeconfig, settings={}):
