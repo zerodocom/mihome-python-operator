@@ -7,6 +7,8 @@ import ssl
 import base64
 import tempfile
 from urllib.parse import urlencode
+import json
+import traceback
 
 class Kube:
     def __init__(self, kubeconfig, settings={}):
