@@ -32,7 +32,8 @@ class Kube:
         self.session = None
         self.connector = None
         self.settings = {
-           "request_timeout": 3,        
+           "request_timeout": 3,
+           "receive_timeout": 300,     
         }
         self.settings.update(settings)
 
@@ -129,4 +130,116 @@ class Kube:
             timeout=self.get_setting("request_timeout", timeout)
         ) as resp:
             return await resp.json()
+
+
+    def watch(self, uri, params=None, receive_timeout=None):
+        return Watcher(self, uri, params, receive_timeout)
+
+
+class Watcher:
+    def __init__(self, kube, uri, params, receive_timeout):
+        self.kube = kube
+        self.uri = uri
+        self.params = params if params is not None else {}
+        self.receive_timeout = self.kube.get_setting("receive_timeout", receive_timeout)
+        self.last_resource_version = 0
+        self.ws_connect = None
+        self.ws_instance = None
+
+    def save_checkpoint(self, resource_version):
+        if resource_version is None:
+            return
+        if int(resource_version) > self.last_resource_version:
+            self.last_resource_version = int(resource_version)
+
+    async def close_ws_connect(self):
+        await self.ws_connect.__aexit__(None, None, None)
+        self.ws_connect = None
+
+    async def __aenter__(self):
+        await self.reconnect()
+        return OperationReceiver(self.ws_instance, self)
+
+    async def __aexit__(self, exc_type, exc, tb):
+        await self.ws_connect.__aexit__(exc_type, exc, tb)
+
+    async def reconnect(self):
+        if self.ws_connect is not None:
+            await self.close_ws_connect()
+
+        req_params = {"watch": 1, "allowWatchBookmarks": "true"}
+        req_params.update(self.params)
+        if self.last_resource_version > 0:
+            req_params["resourceVersion"] = self.last_resource_version
+
+        url = self.kube.get_url(self.uri) + "?" + urlencode(req_params)
+        self.ws_connect = self.kube.get_session().ws_connect(
+            url=url,
+            headers=self.kube.headers,
+            ssl=self.kube.ssl,
+            origin=self.kube.apiserver,
+            receive_timeout=self.receive_timeout
+        )
+        self.ws_instance = await self.ws_connect.__aenter__()
+        return self.ws_instance
+
+class OperationReceiver:
+    def __init__(self, ws_instance, watcher):
+        self.ws_instance = ws_instance
+        self.watcher = watcher
+        self.queue = asyncio.Queue()
+        self.worker = asyncio.create_task(self.worker())
+        self.enable = True
+
+    def __del__(self):
+        self.enable = False
+        self.worker.cancel()
+
+    async def worker(self):
+        while self.enable:
+            try:
+                msg = await self.ws_instance.receive()
+                if msg.type is aiohttp.WSMsgType.TEXT:
+                    data = json.loads(msg.data)
+                    if data.get('type') == "ERROR":
+                        if "too old resource version" in data['object'].get("message", ""):
+                            # {
+                            #     "type":"ERROR",
+                            #     "object":{
+                            #         "kind":"Status",
+                            #         "apiVersion":"v1",
+                            #         "metadata":{},
+                            #         "status":"Failure",
+                            #         "message":"too old resource version: 1 (322)",
+                            #         "reason":"Expired",
+                            #         "code":410
+                            #      }
+                            # }
+                            recommend_version = data['object']['message'].split("(")[1].split(")")[0]
+                            self.watcher.save_checkpoint(recommend_version)
+                            self.ws_instance = await self.watcher.reconnect()
+                        else:
+                            print(data)
+                    else:
+                        self.watcher.save_checkpoint(data.get('object',{}).get("metadata", {}).get("resourceVersion"))
+                        print("put %s" % data)
+                        if data.get('type') not in ["BOOKMARK", None]:
+                            self.queue.put_nowait(data)
+                        continue
+
+                elif msg.type in [aiohttp.WSMsgType.CLOSED, aiohttp.WSMsgType.CLOSE]:
+                    self.ws_instance = await self.watcher.reconnect()
+                else:
+                    print(msg)
+            except asyncio.TimeoutError:
+                self.ws_instance = await self.watcher.reconnect()
+            except:
+                print(traceback.format_exc())
+                 
+            await asyncio.sleep(5)
+
+    async def receive(self):
+        return await self.queue.get()
+
+
 
