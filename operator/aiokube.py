@@ -6,6 +6,7 @@ import yaml
 import ssl
 import base64
 import tempfile
+from urllib.parse import urlencode
 
 class Kube:
     def __init__(self, kubeconfig, settings={}):
