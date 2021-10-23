@@ -117,6 +117,15 @@ class Kube:
     def get_url(self, uri):
         return f"{self.apiserver}{uri}"
 
+    async def get_resource_info(self, apiVersion, kind):
+        if apiVersion in ["v1"]:
+            uri = "/api/v1"
+        else:
+            uri = f"/apis/{apiVersion}"
+        for resource in (await self.get(uri)).get("resources"):
+            if resource.get("kind") == kind:
+                return resource
+
     @staticmethod
     def generate_temp_file(raw):
         temp_file = tempfile.NamedTemporaryFile(delete=False)
