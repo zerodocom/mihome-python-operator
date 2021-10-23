@@ -124,7 +124,26 @@ class Kube:
             uri = f"/apis/{apiVersion}"
         for resource in (await self.get(uri)).get("resources"):
             if resource.get("kind") == kind:
+                resource["uri"] = uri
                 return resource
+
+    async def get_resource_uri(self, apiVersion, kind, namespace=None, metaname=None):
+        resource = await self.get_resource_info(apiVersion, kind)
+       
+        if resource.get("namespaced") is True:
+            if namespace is None:
+                namespace = "default"
+            uri_ns = f"/namespaces/{namespace}/"
+        else: 
+            uri_ns = "/" 
+
+        if metaname is None:
+            uri_name = ""
+        else:
+            uri_name = f"/{metaname}"
+
+        # http:// api_server + /api/v1 + /namespaces/aaa + /kinds + /name
+        return f"{resource['uri']}{uri_ns}{resource['name']}{uri_name}"
 
     @staticmethod
     def generate_temp_file(raw):
